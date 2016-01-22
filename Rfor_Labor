@@ -1,0 +1,85 @@
+#Based on   twitteR in the R Cran library
+# You need to install the library entries 
+library("twitteR", lib.loc="~/R/x86_64-redhat-linux-gnu-library/3.2")
+library("base64enc")
+library(ggplot2); library(readr)
+
+#https://twitter.com/apps/new is where I got the new project authorization info
+#I set the name of the project to:R and AWS streaming to warehouse
+#User aname is   Alan_aws
+#Pointing to http://www.forsythe.org  No organization info was given by me.
+#select "Read, Write and Access direct messages". Make sure
+#to click on the save button after doing this. In the \Details" tab, take note of
+#your consumer key and consumer secret.
+#
+#consumer key is uTqsqrmUqckfSDyBvK4H9K8m2    Also know as  API Key
+#consumer Secret is ZFE9PVxsE1wmPEJvrqKjRpvLAutMhejfXL49ny2fiNqsiEgSrs   Also know as  API Secret
+#Owner is alanbf  whose tritter password is cleaverly called   twitter
+#Owner ID is 16226678
+#I could get Acess Tokens at the website in the /keys section or from R
+#From the Website:
+#Acess_Token         16226678-frJAvZX1hkcOIrBAKs7Vmem5vx4XDYUdVXzABRCQC
+#Acess_Token_Secret  f8Zh0eyuJB49RJi5aO5EB1uYLpaOIxU3GQ4ULULGh7A5H
+
+API_Key <- "uTqsqrmUqckfSDyBvK4H9K8m2"
+API_Secret <- "ZFE9PVxsE1wmPEJvrqKjRpvLAutMhejfXL49ny2fiNqsiEgSrs"
+##### 
+Acess_Token <-"16226678-frJAvZX1hkcOIrBAKs7Vmem5vx4XDYUdVXzABRCQC"
+Acess_Token_Secret<- "f8Zh0eyuJB49RJi5aO5EB1uYLpaOIxU3GQ4ULULGh7A5H"
+
+authjunk<-setup_twitter_oauth(consumer_key=API_Key,consumer_secret = API_Secret,access_token = Acess_Token,access_secret = Acess_Token_Secret)
+# respond with    1
+1
+
+setwd("/var/www")      #  system("rm junk.csv")
+ppath0<-"app.log"
+
+
+#################################################
+
+jobstr<-"axed |downsized| outsourced| unemployed | (job & fired)| (laid & off)|(pink+slip) " # OR fired job "
+
+#            jobstr<-"laid off"
+
+ns <- 100                                          #number of tw per search
+nf <- 50                                           #number of files  Each file contains 10 searches of ns tweets
+set<-0 
+#setwd("/var/www")      
+ppath0<-"app.log"
+filecount <- 0
+last_TW <- NULL
+
+for(j in 1:nf){
+  unlink(paste0( ppath0,filecount-2))
+  filecount<-filecount+1
+  pppath<-paste0(ppath0,filecount)
+  print(pppath)  #for debug
+  
+  tw_df<-NULL
+  tw <-searchTwitter(searchString=jobstr,n=ns,sinceID=last_TW,until=NULL,retryOnRateLimit = 10000)
+  if(length(tw ) > 0){
+    print(tw)                                               # for debug
+    tw_df<-twListToDF(tw)
+    last_TW <- tw_df$id[1]
+  }
+  print(length(tw))
+  
+  for(i in 1:499){
+    tw2 <-searchTwitter(searchString=jobstr,n=ns,sinceID = last_TW,until=NULL,retryOnRateLimit = 10000)
+    if(length(tw2 ) > 0){
+      print(tw2)                                           # for debug
+      tw2_df<-twListToDF(tw2)
+      tw_df<-rbind(tw2_df,tw_df)
+      
+      nn<-nrow(tw_df)
+      last_TW <- tw_df$id[1]
+      cat(nn,last_TW,"\n")
+      Sys.sleep(5)
+    }
+    Sys.sleep(5)
+  }
+  if(!is.null(tw_df)){
+    write_csv(tw_df, path=pppath,append=FALSE,col_names=FALSE) 
+  }
+  else print("no records to write")
+}
