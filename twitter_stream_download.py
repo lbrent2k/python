@@ -6,6 +6,8 @@
 # It will produce the list of tweets for the query "apple" 
 # in the file data/stream_apple.json
 
+
+
 import tweepy
 from tweepy import Stream
 from tweepy import OAuthHandler
@@ -15,6 +17,8 @@ import argparse
 import string
 import config
 import json
+import os
+
 
 def get_parser():
     """Get parser for command line arguments."""
@@ -29,21 +33,37 @@ def get_parser():
                         dest="data_dir",
                         help="Output/Data Directory")
     return parser
-
-
+    
 class MyListener(StreamListener):
     """Custom StreamListener for streaming data."""
 
     def __init__(self, data_dir, query):
         query_fname = format_filename(query)
+         
+        global query_fname
         self.outfile = "%s/stream_%s.json" % (data_dir, query_fname)
-
+        self.outfile  = "%s/stream_%s_%s.json" % (data_dir, query_fname ,file_counter )  #####
+        print(self.outfile)
+        
     def on_data(self, data):
+        global file_counter      
+        global query_fname
         try:
             with open(self.outfile, 'a') as f:
+                print(data)   
                 f.write(data)
-                print(data)
-                return True
+                
+            statinfo = os.stat(self.outfile)     ### get filesize from system
+            sz = statinfo.st_size
+            
+            if sz > 500000:                      ### This is the file size
+                print("flipping files")
+                time.sleep(30)                   ### Pause before deleting file
+                os.remove(self.outfile)
+                file_counter = file_counter +1
+                self.outfile = "%s/stream_%s_%s.json" % ("data", query_fname ,file_counter )  ##### Names new file
+                
+            return True
         except BaseException as e:
             print("Error on_data: %s" % str(e))
             time.sleep(5)
@@ -89,6 +109,8 @@ if __name__ == '__main__':
     auth = OAuthHandler(config.consumer_key, config.consumer_secret)
     auth.set_access_token(config.access_token, config.access_secret)
     api = tweepy.API(auth)
+    file_counter= 10                             ### starting number for the file names
+    
 
     twitter_stream = Stream(auth, MyListener(args.data_dir, args.query))
     twitter_stream.filter(track=[args.query])
